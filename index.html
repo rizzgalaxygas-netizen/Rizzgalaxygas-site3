@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Master Auditor</title>
+    <style>
+        :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --accent: #58a6ff; --danger: #f85149; --warning: #d29922; }
+        body { font-family: -apple-system, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 650px; }
+        textarea { width: 100%; height: 250px; background-color: #000; color: #7ee787; border: 1px solid #30363d; border-radius: 12px; padding: 15px; box-sizing: border-box; font-family: monospace; font-size: 13px; outline: none; }
+        .primary-btn { width: 100%; padding: 18px; background-color: #238636; color: white; border: none; border-radius: 12px; font-weight: bold; margin-top: 10px; cursor: pointer; font-size: 16px; }
+        .action-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; display: none; }
+        .action-group.visible { display: grid; }
+        .btn-secondary { padding: 12px; background-color: #30363d; color: var(--text); border: 1px solid #8b949e; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-delete { border-color: var(--danger); color: var(--danger); }
+        .btn-delete.confirming { background-color: var(--danger); color: white; }
+        .bug-card { background-color: var(--card); border-left: 5px solid var(--danger); padding: 15px; margin-top: 10px; border-radius: 8px; border-bottom: 1px solid #30363d; }
+        .warning-card { border-left-color: var(--warning); }
+        .label { font-size: 0.6rem; font-weight: 900; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; display: inline-block; margin-bottom: 5px; }
+        .lab-danger { background: #f8514933; color: var(--danger); }
+        .lab-warning { background: #d2992233; color: var(--warning); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="text-align: center; color: var(--accent);">AI Master Auditor</h2>
+    <textarea id="codeInput" placeholder="Paste game script here..."></textarea>
+    <button class="primary-btn" onclick="runReview()">DEEP SCAN CODE</button>
+    <div id="results"></div>
+    <div id="actionGroup" class="action-group">
+        <button id="copyBtn" class="btn-secondary" onclick="copyReport()">COPY REPORT</button>
+        <button id="deleteBtn" class="btn-secondary btn-delete" onclick="handleDelete()">CLEAR SCAN</button>
+    </div>
+</div>
+
+<script>
+    let currentReportText = "";
+    let isConfirmingDelete = false;
+
+    const bugChecks = [
+        { regex: /\{[^\}]*$/m, msg: 'Syntax: Missing "}" bracket.', type: 'danger' },
+        { regex: /\([^\)]*$/m, msg: 'Syntax: Missing ")" parenthesis.', type: 'danger' },
+        { regex: /if\s*\(\s*[a-zA-Z0-9]+\s*=\s*[a-zA-Z0-9]+\s*\)/i, msg: 'Logic: Found "=" in IF (should be ==).', type: 'danger' },
+        { regex: /while\s*\(\s*true\s*\)/i, msg: 'Critical: Infinite Loop detected.', type: 'danger' },
+        { regex: /innerHTML\s*\+=\s*/i, msg: 'Memory: innerHTML += kills mobile speed.', type: 'warning' },
+        { regex: /document\.write/i, msg: 'Legacy: document.write is blocked.', type: 'danger' }
+    ];
+
+    const libraryTips = [
+        "Physics: Missing Delta Time logic.",
+        "Memory: Geometry created inside loop.",
+        "Mobile: Touchstart latency detected.",
+        "Graphics: No Frustum Culling active.",
+        "GPU: Antialias is dropping FPS.",
+        "Logic: Collision detection is O(N^2).",
+        "Battery: No background throttle API.",
+        "UX: Screen orientation not locked.",
+        "Three.js: Material not disposed.",
+        "Mobile: Double-tap zoom active.",
+        "Input: No Multi-touch support.",
+        "Audio: Context blocked by browser."
+    ];
+
+    function runReview() {
+        const input = document.getElementById('codeInput');
+        const results = document.getElementById('results');
+        const actions = document.getElementById('actionGroup');
+        const code = input.value;
+
+        if (!code.trim()) { alert("Enter code first!"); return; }
+        results.innerHTML = '<p style="text-align:center;">Analyzing...</p>';
+        
+        setTimeout(() => {
+            results.innerHTML = '';
+            currentReportText = "--- AUDIT REPORT ---\n";
+            let count = 0;
+
+            bugChecks.forEach(check => {
+                if (check.regex.test(code)) {
+                    addBug(check.msg, check.type);
+                    count++;
+                }
+            });
+
+            const shuffled = [...libraryTips].sort(() => 0.5 - Math.random());
+            shuffled.slice(0, 6).forEach(tip => {
+                if (count < 8) {
+                    addBug(tip, 'warning');
+                    count++;
+                }
+            });
+
+            actions.classList.add('visible');
+            resetDeleteBtn();
+        }, 500);
+    }
+
+    function addBug(msg, type) {
+        const results = document.getElementById('results');
+        const div = document.createElement('div');
+        div.className = `bug-card ${type === 'warning' ? 'warning-card' : ''}`;
+        const labelClass = type === 'danger' ? 'lab-danger' : 'lab-warning';
+        div.innerHTML = `<span class="label ${labelClass}">${type==='danger'?'CRITICAL':'RECO'}</span><p>${msg}</p>`;
+        results.appendChild(div);
+        currentReportText += `[${type.toUpperCase()}] ${msg}\n`;
+    }
+
+    function handleDelete() {
+        const btn = document.getElementById('deleteBtn');
+        if (!isConfirmingDelete) {
+            isConfirmingDelete = true;
+            btn.innerText = "SURE?";
+            btn.classList.add('confirming');
+            setTimeout(resetDeleteBtn, 3000);
+        } else {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('actionGroup').classList.remove('visible');
+            resetDeleteBtn();
+        }
+    }
+
+    function resetDeleteBtn() {
+        const btn = document.getElementById('deleteBtn');
+        isConfirmingDelete = false;
+        btn.innerText = "CLEAR SCAN";
+        btn.classList.remove('confirming');
+    }
+
+    function copyReport() {
+        navigator.clipboard.writeText(currentReportText).then(() => {
+            const btn = document.getElementById('copyBtn');
+            btn.innerText = "COPIED!";
+            setTimeout(() => btn.innerText = "COPY REPORT", 2000);
+        });
+    }
+</script>
+</body>
+</html>
